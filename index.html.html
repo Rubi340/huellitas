@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Un Camino a Casa: Edición Ilustración Moderna 🦮</title>
+    <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --color-primary: #FF4081;
+            --color-secondary: #FFD54F;
+            --color-dark: #2C3E50;
+            --color-light: #ECF0F1;
+            --shadow-pro: 0 15px 40px rgba(0,0,0,0.4);
+        }
+
+        body { 
+            margin: 0; padding: 0; overflow: hidden; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+            font-family: 'Jua', sans-serif;
+            display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh;
+            color: white; user-select: none; -webkit-user-select: none;
+        }
+
+        /* Contenedor del Juego Profesional */
+        #game-wrapper {
+            position: relative;
+            box-shadow: var(--shadow-pro);
+            border-radius: 30px;
+            overflow: hidden;
+            border: 12px solid white;
+            background: black; /* Fondo interno */
+            aspect-ratio: 2 / 3; /* Proporción móvil profesional */
+            height: 85vh; /* Altura responsiva */
+            max-height: 800px;
+        }
+
+        canvas { display: block; width: 100%; height: 100%; image-rendering: auto; /* Imágenes suaves */ }
+
+        /* --- Paneles de Interfaz (UI) --- */
+        .game-panel {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); 
+            width: 85%; background: rgba(255, 255, 255, 1); /* Sólido */
+            border-radius: 25px; padding: 35px; text-align: center;
+            box-shadow: 0 15px 30px rgba(0,0,0,0.3);
+            z-index: 100; border: 6px solid var(--color-primary);
+            box-sizing: border-box; display: none; /* Oculto por defecto */
+        }
+
+        .panel-title { font-size: 42px; color: var(--color-primary); margin-bottom: 12px; text-shadow: 2px 2px 0px rgba(0,0,0,0.1); }
+        .panel-text { font-size: 20px; color: #333; line-height: 1.6; margin-bottom: 28px; font-weight: 600; }
+
+        /* Botón Pro Moderno */
+        .pro-btn {
+            padding: 18px 40px; font-size: 22px; 
+            background: linear-gradient(to bottom, var(--color-secondary) 0%, #FFB300 100%);
+            color: #333; border: none; border-radius: 50px; cursor: pointer;
+            font-weight: bold; text-transform: uppercase; letter-spacing: 1px;
+            box-shadow: 0 8px 0px #CC8E00, 0 10px 20px rgba(0,0,0,0.3);
+            transition: all 0.1s; font-family: 'Jua', sans-serif;
+        }
+        .pro-btn:active { transform: translateY(4px); box-shadow: 0 4px 0px #CC8E00, 0 6px 10px rgba(0,0,0,0.3); }
+
+        /* HUD: Marcadores de Vida y Nivel Integrados */
+        #hud {
+            position: absolute; top: 20px; left: 20px; right: 20px;
+            display: flex; justify-content: space-between; align-items: center;
+            z-index: 50; pointer-events: none; /* No interfiere con toques */
+        }
+        .hud-item { 
+            background: rgba(0,0,0,0.7); padding: 10px 20px; border-radius: 20px; 
+            font-size: 22px; border: 3px solid rgba(255,255,255,0.3); 
+            display: flex; align-items: center;
+        }
+        .life-icon { width: 30px; height: 30px; margin-left: 8px; }
+
+    </style>
+</head>
+<body>
+
+    <div id="game-wrapper">
+        <canvas id="gameCanvas"></canvas>
+        
+        <div id="hud">
+            <div class="hud-item">Nivel: <span id="level-num">1</span></div>
+            <div id="lives-container" class="hud-item">Vidas: </div>
+        </div>
+
+        <div id="start-panel" class="game-panel" style="display: block;">
+            <div class="panel-title">Un Camino a Casa 🦮</div>
+            <div class="panel-text">Ayuda al pequeño Golden a cruzar 3 niveles llenos de tráfico real para llegar con su familia. ¡Cuidado con los coches!</div>
+            <button class="pro-btn" onclick="iniciarJuego()">Empezar Nivel 1</button>
+        </div>
+
+        <div id="next-level-panel" class="game-panel">
+            <div class="panel-title">¡Nivel Completado! 🎉</div>
+            <div class="panel-text">¡Excelente trabajo! El tráfico se vuelve más rápido en el siguiente nivel. ¿Estás listo?</div>
+            <button id="next-level-btn" class="pro-btn" onclick="siguienteNivel()">Empezar Nivel 2</button>
+        </div>
+
+        <div id="victory-panel" class="game-panel">
+            <div class="panel-title">¡Misión Cumplida! ❤️🐾</div>
+            <div class="panel-text">
+                Gracias a ti, el Golden está a salvo con su familia.<br>
+                <b>Considera adoptar. Miles de cachorros esperan en refugios una segunda oportunidad. 🐈🐕</b>
+            </div>
+            <button class="pro-btn" onclick="reiniciarTodo()">Jugar de Nuevo 🦮</button>
+        </div>
+
+        <div id="gameover-panel" class="game-panel">
+            <div class="panel-title">Game Over 💥🥺</div>
+            <div class="panel-text">El camino es difícil, pero no te rindas. ¡El perrito te necesita!</div>
+            <button class="pro-btn" onclick="reiniciarNivelActual()">Reintentar Nivel</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        const panels = document.querySelectorAll('.game-panel');
+        const levelNumDisplay = document.getElementById('level-num');
+        const livesContainer = document.getElementById('lives-container');
+
+        // Dimensiones Lógicas (Internas)
+        const LOGICAL_WIDTH = 400;
+        const LOGICAL_HEIGHT = 600;
+
+        // --- Carga de Gráficos Modernos Integrados (Base64 SVG) ---
+        const imagenes = {
+            perrito: new Image(), perritoRun: new Image(), familia: new Image(),
+            cocheRojo: new Image(), camion: new Image(), policia: new Image(), ambulancia: new Image(),
+            corazon: new Image()
+        };
+
+        // Gráficos Vectoriales Modernos Integrados (Blindados)
+        imagenes.perrito.src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48Y2lyY2xlIGN4PSI1MCIgY3k9IjUwIiByPSI0MCIgZmlsbD0iI0YxQzQwRiIvPjxjaXJjbGUgY3g9IjM1IiBjeT0iNDUiIHI9IjUiIGZpbGw9ImJsYWNrIi8+PGNpcmNsZSBjeD0iNjUiIGN5PSI0NSIgcjPSI1IiBmaWxsPSJibGFjayIvPjxwYXRoIGQ9Ik0zNSA2NSBRNTAgNzUgNjUgNjUiIHN0cm9rZT0iYmxhY2siIHN0cm9rZS13aWR0aD0iMyIgZmlsbD0ibm9uZSIvPjwvc3ZnPg==';
+        imagenes.perritoRun.src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48Y2lyY2xlIGN4PSI1MCIgY3k9IjQ1IiByPSI0MCIgZmlsbD0iI0YxQzQwRiIvPjxjaXJjbGUgY3g9IjM1IiBjeT0iNDAiIHI9IjUiIGZpbGw9ImJsYWNrIi8+PGNpcmNsZSBjeD0iNjUiIGN5PSI0MCIgcjPSI1IiBmaWxsPSJibGFjayIvPjxwYXRoIGQ9Ik0zNSA2MCBRNTAgNzAgNjUgNjAiIHN0cm9rZT0iYmxhY2siIHN0cm9rZS13aWR0aD0iMyIgZmlsbD0ibm9uZSIvPjwvc3ZnPg==';
+        imagenes.familia.src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48cmVjdCB4PSIyMCIgeT0iMjAiIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcng9IjEwIiBmaWxsPSIjRkZEMzBCIi8+PGNpcmNsZSBjeD0iNDAiIGN5PSI0MCIgcjPSIxMCIgZmlsbD0iI0YxQzQwRiIvPjxjaXJjbGUgY3g9IjYwIiBjeT0iNDAiIHI9PSIxMCIgZmlsbD0iI0YxQzQwRiIvPjwvc3ZnPg==';
+        imagenes.cocheRojo.src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48cmVjdCB4PSIyMCIgeT0iMzAiIHdpZHRoPSI2MCIgaGVpZ2h0PSI0MCIgcng9IjEwIiBmaWxsPSIjRTc0QzNDIi8+PHJlY3QgeT0iMjUiIHk9IjM1IiB3aWR0aD0iMjAiIGhlaWdodD0iMzAiIHJ4PSI1IiBmaWxsPSIjRkNGRUZFIi8+PGNpcmNsZSBjeD0iMzAiIGN5PSI3MCIgcjPSIxMCIgZmlsbD0iYmxhY2siLz48Y2lyY2xlIGN4PSI3MCIgY3k9IjcwIiByPSIxMCIgZmlsbD0iYmxhY2siLz48L3N2Zz4=';
+        imagenes.camion.src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48cmVjdCB4PSIxMCIgeT0iMjAiIHdpZHRoPSI4MCIgaGVpZ2h0PSI2MCIgcng9IjUiIGZpbGw9IiM4RjhGOEYiLz48cmVjdCB4PSIxNSIgeT0iMzAiIHdpZHRoPSIxNSIgaGVpZ2h0PSI0MCIgcng9IjMiIGZpbGw9IiNGQ0ZFRkUiLz48Y2lyY2xlIGN4PSIyNSIgY3k9IjgwIiByPSIxMiIgZmlsbD0iYmxhY2siLz48Y2lyY2xlIGN4PSI3NSIgY3k9IjgwIiByPSIxMiIgZmlsbD0iYmxhY2siLz48L3N2Zz4=';
+        imagenes.policia.src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48cmVjdCB4PSIyMCIgeT0iMzAiIHdpZHRoPSI2MCIgaGVpZ2h0PSI0MCIgcng9IjEwIiBmaWxsPSIjMzQ5OERCIi8+PHJlY3QgeT0iMjUiIHk9IjM1IiB3aWR0aD0iMjAiIGhlaWdodD0iMzAiIHJ4PSI1IiBmaWxsPSIjRkNGRUZFIi8+PHJlY3QgeT0iMzAiIHk9IjMwIiB3aWR0aD0iNDAiIGhlaWdodD0iMTAiIGZpbGw9ImJsYWNrIi8+PGNpcmNsZSBjeD0iMzAiIGN5PSI3MCIgcjPSIxMCIgZmlsbD0iYmxhY2siLz48Y2lyY2xlIGN4PSI3MCIgY3k9IjcwIiByPSIxMCIgZmlsbD0iYmxhY2siLz48L3N2Zz4=';
+        imagenes.ambulancia.src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48cmVjdCB4PSIyMCIgeT0iMzAiIHdpZHRoPSI2MCIgaGVpZ2h0PSI0MCIgcng9IjEwIiBmaWxsPSIjRkZGRkZGIi8+PHJlY3QgeT0iMjUiIHk9IjM1IiB3aWR0aD0iMjAiIGhlaWdodD0iMzAiIHJ4PSI1IiBmaWxsPSIjRkNGRUZFIi8+PHJlY3QgeT0iNDAiIHk9IjMwIiB3aWR0aD0iMjAiIGhlaWdodD0iMTAiIGZpbGw9InJlZCIvPjxjaXJjbGUgY3g9IjMwIiBjeT0iNzAiIHI9PSIxMCIgZmlsbD0iYmxhY2siLz48Y2lyY2xlIGN4PSI3MCIgY3k9IjcwIiByPSIxMCIgZmlsbD0iYmxhY2siLz48L3N2Zz4=';
+        imagenes.corazon.src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48cGF0aCBkPSJNMTAgMzAgQTIwIDIwIDAgMCAxIDUwIDMwIEEyMCAyMCAwIDAgMSAxMDAgMzAgUTgwIDgwIDUwIDEwMCBRMjAgODAgMTAgMzAgWiIgZmlsbD0iI0ZGNDAxMSIvPjwvc3ZnPg==';
+
+        // Configuración Canvas (Retina)
+        function setupCanvas() {
+            const ratio = window.devicePixelRatio || 1;
+            canvas.width = LOGICAL_WIDTH * ratio;
+            canvas.height = LOGICAL_HEIGHT * ratio;
+            ctx.scale(ratio, ratio);
+            ctx.imageSmoothingEnabled = true; // Suavizado activado
+        }
+        setupCanvas();
+
+        // --- Configuración de Niveles Pro ---
+        const configuracionNiveles = {
+            1: { nombre: "Pueblo 🏡", carriles: 3, velocidadBase: 3.8, spawnRate: 70, colorCarretera: "#57606F", coches: [imagenes.cocheRojo, imagenes.camion] },
+            2: { nombre: "Ciudad 🏢", carriles: 4, velocidadBase: 5.8, spawnRate: 55, colorCarretera: "#34495E", coches: [imagenes.cocheRojo, imagenes.camion, imagenes.policia] },
+            3: { nombre: "Autopista 🛣️", carriles: 5, velocidadBase: 8.5, spawnRate: 40, colorCarretera: "#1A252F", coches: [imagenes.cocheRojo, imagenes.camion, imagenes.policia, imagenes.ambulancia] }
+        };
+
+        // --- Variables de Estado del Juego ---
+        let estadoJuego = 'inicio';
+        let nivelActual = 1;
+        let vidas = 3;
+        let crucesExitosos = 0;
+        let frameCount = 0;
+        let obstaculos = [];
+        let corazonesVictoria = [];
+        let rastroPatitas = [];
+        let choquesEfecto = [];
+        let nubes = [];
+
+        // --- Configuración de Objetos Modernos ---
+        const perrito = { 
+            startX: LOGICAL_WIDTH / 2 - 30, startY: LOGICAL_HEIGHT - 100,
+            x: 0, y: 0, 
+            width: 60, height: 60, speed: 30, invencible: false,
+            animFrame: 0, animSpeed: 12
+        };
+        const familia = { x: LOGICAL_WIDTH / 2 - 45, y: 35, width: 90, height: 90 };
+
+        // Crear Nubes Iniciales Modernas
+        for(let i=0; i<4; i++) nubes.push({ x: Math.random() * LOGICAL_WIDTH, y: Math.random() * 100 + 10, speed: Math.random() * 0.3 + 0.2 });
+
+        // --- Funciones de Control de Flujo ---
+        function mostrarPanel(id) {
+            panels.forEach(p => p.style.display = 'none');
+            if(id) document.getElementById(id).style.display = 'block';
+        }
+
+        function resetPosicionPerrito() { perrito.x = perrito.startX; perrito.y = perrito.startY; }
+
+        function actualizarHUD() {
+            levelNumDisplay.innerText = nivelActual;
+            livesContainer.innerHTML = 'Vidas: ';
+            for(let i=0; i<vidas; i++) {
+                livesContainer.innerHTML += `<img src="${imagenes.corazon.src}" class="life-icon">`;
+            }
+        }
+
+        function iniciarJuego() {
+            nivelActual = 1; vidas = 3; crucesExitosos = 0; obstaculos = [];
+            actualizarHUD(); resetPosicionPerrito();
+            estadoJuego = 'jugando'; mostrarPanel(null);
+        }
+
+        function siguienteNivel() {
+            nivelActual++; crucesExitosos = 0; obstaculos = [];
+            actualizarHUD(); resetPosicionPerrito();
+            estadoJuego = 'jugando'; mostrarPanel(null);
+        }
+
+        function reiniciarNivelActual() {
+            vidas = 3; crucesExitosos = 0; obstaculos = [];
+            actualizarHUD(); resetPosicionPerrito();
+            estadoJuego = 'jugando'; mostrarPanel(null);
+        }
+
+        function reiniciarTodo() { iniciarJuego(); }
+
+        // --- Lógica de Obstáculos y Dibujo Moderno ---
+        function crearObstaculo() {
+            const config = configuracionNiveles[nivelActual];
+            const lane = Math.floor(Math.random() * config.carriles); 
+            const carreteraYStart = 160; const carreteraHeight = 320;
+            const laneHeight = carreteraHeight / config.carriles;
+            const yPosition = carreteraYStart + (lane * laneHeight) + (laneHeight / 2) - 30; // Centrado
+            
+            const speed = config.velocidadBase + (Math.random() * 1.5); 
+            
+            obstaculos.push({
+                x: LOGICAL_WIDTH + 70, 
+                y: yPosition, speed: speed,
+                img: config.coches[Math.floor(Math.random() * config.coches.length)],
+                width: 70, height: 70
+            });
+        }
+
+        function dibujarFondoModerno() {
+            const config = configuracionNiveles[nivelActual];
+            
+            // 1. Cielo (Limpieza) y Nubes
+            ctx.fillStyle = "#A1EAFB"; ctx.fillRect(0, 0, LOGICAL_WIDTH, LOGICAL_HEIGHT);
+            ctx.fillStyle = "white"; ctx.font = "40px serif";
+            nubes.forEach(nube => {
+                ctx.fillText("☁️", nube.x, nube.y);
+                nube.x += nube.speed;
+                if (nube.x > LOGICAL_WIDTH + 60) nube.x = -60;
+            });
+
+            // 2. Zona Meta (Acera y Casa Modernas)
+            ctx.fillStyle = "#FF7F50"; ctx.fillRect(0, 0, LOGICAL_WIDTH, 140);
+            ctx.fillStyle = "#DFE4EA"; ctx.fillRect(0, 140, LOGICAL_WIDTH, 20);
+
+            // 3. Carretera Moderna (Asfalto texturizado)
+            ctx.fillStyle = config.colorCarretera; ctx.fillRect(0, 160, LOGICAL_WIDTH, 320);
+            
+            // Líneas de carretera modernas y nítidas
+            ctx.strokeStyle = "#F1C40F"; ctx.lineWidth = 8; ctx.setLineDash([40, 30]);
+            const laneHeight = 320 / config.carriles;
+            for(let i = 1; i < config.carriles; i++) {
+                let yLine = 160 + (i * laneHeight);
+                ctx.beginPath(); ctx.moveTo(0, yLine); ctx.lineTo(LOGICAL_WIDTH, yLine); ctx.stroke();
+            }
+            ctx.setLineDash([]); // Reset
+
+            // 4. Zona Salida (Pasto Moderno texturizado suave)
+            ctx.fillStyle = "#2ECC71"; ctx.fillRect(0, 480, LOGICAL_WIDTH, 120);
+            
+            // Textura de pasto suave (pequeños puntos y flores sutiles)
+            ctx.fillStyle = "rgba(0,0,0,0.06)";
+            for(let i=0; i<LOGICAL_WIDTH; i+=10) {
+                for(let j=485; j<LOGICAL_HEIGHT; j+=15) {
+                    if((i+j)%4==0) ctx.fillRect(i, j, 2, 2);
+                }
+            }
+        }
+
+        function dibujarObjetosModernos() {
+            // Familia Moderna
+            ctx.drawImage(imagenes.familia, familia.x, familia.y, familia.width, familia.height);
+
+            // Rastro de Patitas al ganar (sólido y nítido)
+            rastroPatitas.forEach(p => {
+                ctx.beginPath(); ctx.arc(p.x, p.y, 4, 0, Math.PI * 2); 
+                ctx.fillStyle = "rgba(0,0,0,0.15)"; ctx.fill();
+            });
+
+            // Perrito (🦮) con Animación Moderna (Correr suave)
+            let imgPerrito = imagenes.perrito;
+            if (estadoJuego === 'jugando') {
+                perrito.animFrame = (perrito.animFrame + 1) % (perrito.animSpeed * 2);
+                imgPerrito = (perrito.animFrame < perrito.animSpeed) ? imagenes.perrito : imagenes.perritoRun;
+            } else if (perrito.invencible) {
+                imgPerrito = imagenes.perrito; // Usamos estática para aturdido temporalmente
+            }
+
+            if(!perrito.invencible || frameCount % 10 < 7) { 
+                ctx.drawImage(imgPerrito, perrito.x, perrito.y, perrito.width, perrito.height);
+            }
+
+            // Obstáculos (Coches detallados modernos)
+            obstaculos.forEach(obs => {
+                ctx.drawImage(obs.img, obs.x, obs.y, obs.width, obs.height);
+            });
+
+            // Efectos de Choque Vectoriales 💥 (Humo/Explosión moderna)
+            choquesEfecto.forEach((e, index) => {
+                ctx.font = e.size + "px serif";
+                ctx.fillText("💥", e.x - e.size/2, e.y + e.size/2);
+                e.size -= 2.5;
+                if(e.size <= 15) choquesEfecto.splice(index, 1);
+            });
+        }
+
+        function moverObstaculosYColisiones() {
+            obstaculos.forEach(obs => {
+                obs.x -= obs.speed; 
+
+                // Colisión Profesional y Precisa (usando dimensiones reales)
+                if (!perrito.invencible && estadoJuego === 'jugando' &&
+                    perrito.x + perrito.width * 0.25 < obs.x + obs.width * 0.75 &&
+                    perrito.x + perrito.width * 0.75 > obs.x + obs.width * 0.25 &&
+                    perrito.y + perrito.height * 0.25 < obs.y + obs.height * 0.75 &&
+                    perrito.y + perrito.height * 0.75 > obs.y + obs.height * 0.25
+                ) {
+                    manejarChoque();
+                }
+            });
+            obstaculos = obstaculos.filter(obs => obs.x > -120); 
+        }
+
+        function manejarChoque() {
+            vidas--; actualizarHUD();
+            perrito.invencible = true;
+            obstaculos = []; // Limpiar tráfico
+            
+            // Añadir Efecto Choque Moderno Vectorial 💥
+            choquesEfecto.push({ x: perrito.x + perrito.width / 2, y: perrito.y + perrito.height / 2, size: 70 });
+
+            if(vidas <= 0) {
+                estadoJuego = 'gameOver';
+                mostrarPanel('gameover-panel');
+            } else {
+                perrito.y = Math.min(LOGICAL_HEIGHT - 110, perrito.y + 60); // Retroceso
+                setTimeout(() => perrito.invencible = false, 2000); // 2 seg invencible
+            }
+        }
+
+        function checkVictoriaNivel() {
+            if (perrito.y <= 160 && estadoJuego === 'jugando') { 
+                estadoJuego = 'nivelCompleto';
+                crucesExitosos++;
+                
+                // Animación: camina hacia la familia
+                let caminaHaciaFamilia = setInterval(() => {
+                    perrito.y -= 4;
+                    rastroPatitas.push({ x: perrito.x + 30 + Math.random()*5, y: perrito.y + 55 });
+                    if(perrito.y <= 85) {
+                        clearInterval(caminaHaciaFamilia);
+                        manejarTransicionNivel();
+                    }
+                }, 40);
+            }
+        }
+
+        function manejarTransicionNivel() {
+            if(nivelActual < 3) {
+                document.getElementById('next-level-btn').innerText = `Empezar Nivel ${nivelActual + 1}`;
+                mostrarPanel('next-level-panel');
+            } else {
+                estadoJuego = 'victoria';
+                crearLluviaVictoriaFinal(); 
+                mostrarPanel('victory-panel');
+            }
+        }
+
+        // --- Efectos Victoria Final (Lluvia profesional y sólida) ---
+        function crearLluviaVictoriaFinal() {
+            const emojisVictoria = ["💖", "❤️", "🐾", "🐶"];
+            for(let i=0; i<50; i++) {
+                corazonesVictoria.push({
+                    x: Math.random() * LOGICAL_WIDTH,
+                    y: LOGICAL_HEIGHT + Math.random() * 300,
+                    speed: Math.random() * 3 + 3,
+                    size: Math.random() * 15 + 20,
+                    emoji: emojisVictoria[Math.floor(Math.random() * emojisVictoria.length)],
+                    drift: Math.random() * 2 - 1 
+                });
+            }
+        }
+
+        function dibujarCorazonesLluvia() {
+            corazonesVictoria.forEach((c, index) => {
+                ctx.font = c.size + "px serif";
+                ctx.fillText(c.emoji, c.x, c.y);
+                c.y -= c.speed; 
+                c.x += c.drift;
+                if (c.y < -60) corazonesVictoria.splice(index, 1);
+            });
+        }
+
+        // --- Controles Directos ---
+        function mover(direccion) {
+            if (estadoJuego !== 'jugando') return;
+            switch(direccion) {
+                case 'up': perrito.y -= perrito.speed; break; 
+                case 'down': if(perrito.y < LOGICAL_HEIGHT - 120) perrito.y += perrito.speed; break; 
+                case 'left': if(perrito.x > 10) perrito.x -= perrito.speed; break;
+                case 'right': if(perrito.x < LOGICAL_WIDTH - perrito.width - 15) perrito.x += perrito.speed; break;
+            }
+        }
+
+        // Teclado
+        window.addEventListener("keydown", (e) => {
+            if (e.key === "ArrowUp") mover('up');
+            if (e.key === "ArrowDown") mover('down');
+            if (e.key === "ArrowLeft") mover('left');
+            if (e.key === "ArrowRight") mover('right');
+        });
+
+        // Táctil (Swipe Pro)
+        let touchStartX = 0; let touchStartY = 0;
+        canvas.addEventListener("touchstart", (e) => {
+            touchStartX = e.changedTouches[0].screenX;
+            touchStartY = e.changedTouches[0].screenY;
+            if(estadoJuego === 'jugando') e.preventDefault();
+        }, {passive: false});
+
+        canvas.addEventListener("touchend", (e) => {
+            let dx = e.changedTouches[0].screenX - touchStartX;
+            let dy = e.changedTouches[0].screenY - touchStartY;
+            const threshold = 35;
+            if (Math.abs(dx) > Math.abs(dy)) {
+                if (dx > threshold) mover('right'); else if (dx < -threshold) mover('left');
+            } else {
+                if (dy > threshold) mover('down'); else if (dy < -threshold) mover('up');
+            }
+            if(estadoJuego === 'jugando') e.preventDefault();
+        }, {passive: false});
+
+
+        // --- Loop Principal ---
+        function loop() {
+            dibujarFondoModerno(); // Dibuja y BORRA
+            frameCount++;
+            
+            if (estadoJuego === 'jugando') {
+                const config = configuracionNiveles[nivelActual];
+                if (frameCount % config.spawnRate === 0) crearObstaculo();
+                moverObstaculosYColisiones();
+                checkVictoriaNivel();
+            } else if (estadoJuego === 'victoria') {
+                dibujarCorazonesLluvia(); 
+            }
+
+            dibujarObjetosModernos(); // Dibuja todo sobre el fondo limpio
+
+            requestAnimationFrame(loop);
+        }
+
+        loop();
+
+    </script>
+</body>
+</html>
